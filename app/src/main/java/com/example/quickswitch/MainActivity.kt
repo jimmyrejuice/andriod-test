@@ -1,7 +1,6 @@
 package com.example.quickswitch
 
 import android.Manifest
-import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
 import android.content.Context
 import android.content.Intent
@@ -56,7 +55,7 @@ fun BedtimeSwitchScreen() {
         if (granted) {
             requestDisableBluetooth(context)
         } else {
-            Toast.makeText(context, "需要蓝牙权限才能关闭蓝牙", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "需要蓝牙权限才能打开蓝牙设置", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -139,8 +138,10 @@ fun requestDisableBluetooth(context: Context) {
     val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
     val bluetoothAdapter = bluetoothManager.adapter
     if (bluetoothAdapter?.isEnabled == true) {
-        val intent = Intent(BluetoothAdapter.ACTION_REQUEST_DISABLE)
+        val intent = Intent(Settings.ACTION_BLUETOOTH_SETTINGS)
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         context.startActivity(intent)
+        Toast.makeText(context, "请在设置中关闭蓝牙", Toast.LENGTH_SHORT).show()
     } else {
         Toast.makeText(context, "蓝牙已关闭", Toast.LENGTH_SHORT).show()
     }
