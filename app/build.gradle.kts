@@ -8,13 +8,13 @@ android {
     namespace = "com.example.quickswitch"
     compileSdk = 35
 
-defaultConfig {
-    applicationId = "com.example.quickswitch"
-    minSdk = 29
-    targetSdk = 35
-    versionCode = 4
-    versionName = "1.3"
-}
+    defaultConfig {
+        applicationId = "com.example.quickswitch"
+        minSdk = 29
+        targetSdk = 35
+        versionCode = 5
+        versionName = "1.3.1"
+    }
 
     buildTypes {
         release {
@@ -29,8 +29,8 @@ defaultConfig {
         jvmTarget = "17"
     }
     buildFeatures {
-    compose = true
-    buildConfig = true
+        compose = true
+        buildConfig = true
     }
 }
 
