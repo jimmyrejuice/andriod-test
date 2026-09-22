@@ -376,8 +376,9 @@ private fun SleepChart(
         }
 
         // 画 y 轴刻度线 + 文字
+        //val ticks = listOf(-6f, -3f, 0f, 3f, 6f, 9f, 12f)
+        //val drawTextMeasurer = androidx.compose.ui.text.rememberTextMeasurer()
         val ticks = listOf(-6f, -3f, 0f, 3f, 6f, 9f, 12f)
-        val drawTextMeasurer = androidx.compose.ui.text.rememberTextMeasurer()
         // 注意：Canvas 里不能直接调用 rememberTextMeasurer，需要放到外面
         // 为了简单，这里用横线代替文字标注，配合外部图例使用
 
