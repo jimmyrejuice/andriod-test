@@ -129,8 +129,24 @@ fun QuickSwitchApp() {
     val prefs = remember { context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) }
     var accentKey by remember { mutableStateOf(prefs.getString(KEY_ACCENT, "blue") ?: "blue") }
     var tab by remember { mutableIntStateOf(0) }
+    var sleepRefreshTick by remember { mutableIntStateOf(0) }
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+
+    // 导入文件选择器
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            val count = SleepStorage.importCsv(context, uri)
+            if (count >= 0) {
+                Toast.makeText(context, "已导入 $count 条记录", Toast.LENGTH_SHORT).show()
+                sleepRefreshTick++
+            } else {
+                Toast.makeText(context, "导入失败，请检查 CSV 格式", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     MaterialTheme(colorScheme = buildScheme(accentKey)) {
         ModalNavigationDrawer(
@@ -147,11 +163,15 @@ fun QuickSwitchApp() {
                         Toast.makeText(
                             context,
                             if (ok) "已导出到 Downloads/sleep/sleep_data.csv"
-                            else "导出失败，请重试",
+                            else "没有可导出的数据",
                             Toast.LENGTH_LONG
                         ).show()
+                        scope.launch { drawerState.close() }
                     },
-                    closeDrawer = { scope.launch { drawerState.close() } }
+                    onImportClick = {
+                        scope.launch { drawerState.close() }
+                        importLauncher.launch(arrayOf("*/*"))
+                    }
                 )
             }
         ) {
@@ -186,7 +206,7 @@ fun QuickSwitchApp() {
                     }
                     when (tab) {
                         0 -> SwitchScreen()
-                        else -> SleepScreen()
+                        else -> SleepScreen(refreshTick = sleepRefreshTick)
                     }
                 }
             }
@@ -201,7 +221,7 @@ fun DrawerContent(
     accentKey: String,
     onAccentChange: (String) -> Unit,
     onExportClick: () -> Unit,
-    closeDrawer: () -> Unit
+    onImportClick: () -> Unit
 ) {
     val context = LocalContext.current
 
@@ -263,10 +283,15 @@ fun DrawerContent(
         NavigationDrawerItem(
             label = { Text("导出睡眠数据") },
             selected = false,
-            onClick = {
-                onExportClick()
-                closeDrawer()
-            },
+            onClick = onExportClick,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+        )
+
+        // ---- 导入 ----
+        NavigationDrawerItem(
+            label = { Text("导入睡眠数据") },
+            selected = false,
+            onClick = onImportClick,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
         )
 
