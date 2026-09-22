@@ -17,6 +17,7 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -64,6 +65,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -105,6 +107,14 @@ private fun buildScheme(accentKey: String): ColorScheme {
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // 明确开启 edge-to-edge（targetSdk 35 在 Android 15+ 会强制启用）
+        enableEdgeToEdge()
+
+        // 2A 修复：状态栏图标改为深色，浅色背景上看得清
+        WindowCompat.getInsetsController(window, window.decorView)
+            .isAppearanceLightStatusBars = true
+
         setContent { QuickSwitchApp() }
     }
 }
@@ -184,20 +194,16 @@ fun SwitchScreen() {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        // 3B-1：描述小字已删除，条目列表整体移入「睡前开关」卡片
         Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text("睡前开关", style = MaterialTheme.typography.titleLarge)
-                Spacer(Modifier.height(4.dp))
+            Column(modifier = Modifier.padding(vertical = 8.dp)) {
                 Text(
-                    "依次关闭 Wi-Fi、移动网络、蓝牙、NFC，并开启省电模式",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = "睡前开关",
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.padding(horizontal = 16.dp)
                 )
-            }
-        }
+                Spacer(Modifier.height(8.dp))
 
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(vertical = 4.dp)) {
                 SwitchItem(
                     title = "Wi-Fi",
                     isOn = wifiOn,
