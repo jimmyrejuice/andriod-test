@@ -23,10 +23,29 @@ jobs:
         with:
           gradle-version: '8.13'
 
+      - name: Decode Debug Keystore
+        run: |
+          mkdir -p "$RUNNER_TEMP/keystore"
+          echo "${{ secrets.DEBUG_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/keystore/debug.keystore"
+          echo "DEBUG_KEYSTORE_FILE=$RUNNER_TEMP/keystore/debug.keystore" >> "$GITHUB_ENV"
+
       - name: Build Debug APK
-        run: gradle assembleDebug --stacktrace
+        run: |
+          set +e
+          gradle assembleDebug \
+            -Pandroid.injected.signing.store.file="$DEBUG_KEYSTORE_FILE" \
+            -Pandroid.injected.signing.store.password="${{ secrets.DEBUG_KEYSTORE_PASSWORD }}" \
+            -Pandroid.injected.signing.key.alias="androiddebugkey" \
+            -Pandroid.injected.signing.key.password="${{ secrets.DEBUG_KEYSTORE_PASSWORD }}" \
+            --stacktrace --info > build_full.log 2>&1
+          EXIT_CODE=$?
+          echo "=== BUILD EXIT CODE: $EXIT_CODE ==="
+          echo "=== KOTLIN ERRORS ==="
+          grep -E "^e: |Unresolved|error:|Caused by|What went wrong|FAILURE" build_full.log || echo "NO ERRORS FOUND"
+          exit $EXIT_CODE
 
       - name: Find APK
+        if: always()
         run: find . -name "*.apk" -type f
 
       - name: Upload APK
