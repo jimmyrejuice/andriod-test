@@ -3,6 +3,7 @@ package com.example.quickswitch
 import android.app.AlarmManager
 import android.content.ContentValues
 import android.content.Context
+import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
@@ -182,6 +183,67 @@ object SleepStorage {
         } catch (e: Exception) {
             false
         }
+    }
+
+    /**
+     * 从 CSV 导入。按日期合并：同日期覆盖，新日期新增。
+     * 返回成功导入的记录条数；失败返回 -1。
+     * CSV 格式（第一行表头可省略）：
+     *   日期,入睡时间,起床时间
+     *   2025-09-22,23:15,07:30
+     */
+    fun importCsv(context: Context, uri: Uri): Int {
+        return try {
+            val text = context.contentResolver.openInputStream(uri)?.use {
+                it.bufferedReader().readText()
+            } ?: return -1
+
+            val records = loadAll(context).toMutableMap()
+            var count = 0
+            var isFirstLine = true
+
+            text.lineSequence().forEach { raw ->
+                val line = raw.trim().removePrefix("\uFEFF")
+                if (line.isEmpty()) return@forEach
+
+                // 跳过表头
+                if (isFirstLine) {
+                    isFirstLine = false
+                    if (line.startsWith("日期") || line.startsWith("date", ignoreCase = true)) {
+                        return@forEach
+                    }
+                }
+
+                val parts = line.split(",")
+                if (parts.size < 2) return@forEach
+
+                val dateKey = parts[0].trim()
+                if (dateKey.isEmpty()) return@forEach
+
+                val sleep = parseTime(parts.getOrNull(1)?.trim() ?: "")
+                val wake = parseTime(parts.getOrNull(2)?.trim() ?: "")
+
+                records[dateKey] = SleepRecord(dateKey, sleep, wake)
+                count++
+            }
+
+            if (count == 0) return -1
+            saveAll(context, records)
+            count
+        } catch (e: Exception) {
+            -1
+        }
+    }
+
+    /** "23:15" → 1395。空白或格式错误返回 null。 */
+    private fun parseTime(s: String): Int? {
+        if (s.isBlank()) return null
+        val parts = s.split(":")
+        if (parts.size != 2) return null
+        val h = parts[0].toIntOrNull() ?: return null
+        val m = parts[1].toIntOrNull() ?: return null
+        if (h !in 0..23 || m !in 0..59) return null
+        return h * 60 + m
     }
 
     fun formatMinutes(m: Int): String = "%02d:%02d".format(m / 60, m % 60)
