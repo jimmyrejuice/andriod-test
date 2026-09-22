@@ -1,6 +1,8 @@
 # andriod-test
 try an andriod test
 
+power by deepseek
+
 all files:
 
 | 序号 | 文件 |
