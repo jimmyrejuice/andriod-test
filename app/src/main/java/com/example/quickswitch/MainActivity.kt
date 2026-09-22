@@ -39,9 +39,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.ColorScheme
+import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
@@ -49,12 +54,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.lightColorScheme
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -69,16 +76,17 @@ import androidx.core.view.WindowCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import kotlinx.coroutines.launch
 
-private const val GITHUB_URL = "https://github.com/jimmyrejuice/andriod-test/"
+const val GITHUB_URL = "https://github.com/jimmyrejuice/andriod-test/"
 private const val PREFS_NAME = "quickswitch_prefs"
 private const val KEY_ACCENT = "accent_key"
 
 // ---------------- 主题色 ----------------
 
-private data class AccentOption(val key: String, val label: String, val color: Color)
+data class AccentOption(val key: String, val label: String, val color: Color)
 
-private val accentOptions = listOf(
+val accentOptions = listOf(
     AccentOption("blue", "默认蓝", Color(0xFF1565C0)),
     AccentOption("purple", "紫罗兰", Color(0xFF6750A4)),
     AccentOption("green", "草木绿", Color(0xFF2E7D32)),
@@ -86,7 +94,7 @@ private val accentOptions = listOf(
     AccentOption("pink", "樱花粉", Color(0xFFC2185B)),
 )
 
-private fun buildScheme(accentKey: String): ColorScheme {
+fun buildScheme(accentKey: String): ColorScheme {
     val primary = accentOptions.firstOrNull { it.key == accentKey }?.color ?: accentOptions[0].color
     return lightColorScheme(
         primary = primary,
@@ -107,14 +115,9 @@ private fun buildScheme(accentKey: String): ColorScheme {
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        // 明确开启 edge-to-edge（targetSdk 35 在 Android 15+ 会强制启用）
         enableEdgeToEdge()
-
-        // 2A 修复：状态栏图标改为深色，浅色背景上看得清
         WindowCompat.getInsetsController(window, window.decorView)
             .isAppearanceLightStatusBars = true
-
         setContent { QuickSwitchApp() }
     }
 }
@@ -126,30 +129,178 @@ fun QuickSwitchApp() {
     val prefs = remember { context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) }
     var accentKey by remember { mutableStateOf(prefs.getString(KEY_ACCENT, "blue") ?: "blue") }
     var tab by remember { mutableIntStateOf(0) }
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
 
     MaterialTheme(colorScheme = buildScheme(accentKey)) {
-        Scaffold(
-            topBar = { TopAppBar(title = { Text("快捷开关") }) }
-        ) { innerPadding ->
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-            ) {
-                TabRow(selectedTabIndex = tab) {
-                    Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text("开关") })
-                    Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text("菜单") })
-                }
-                when (tab) {
-                    0 -> SwitchScreen()
-                    else -> MenuScreen(
-                        accentKey = accentKey,
-                        onAccentChange = { key ->
-                            accentKey = key
-                            prefs.edit().putString(KEY_ACCENT, key).apply()
+        ModalNavigationDrawer(
+            drawerState = drawerState,
+            drawerContent = {
+                DrawerContent(
+                    accentKey = accentKey,
+                    onAccentChange = { key ->
+                        accentKey = key
+                        prefs.edit().putString(KEY_ACCENT, key).apply()
+                    },
+                    onExportClick = {
+                        val ok = SleepStorage.exportCsv(context)
+                        Toast.makeText(
+                            context,
+                            if (ok) "已导出到 Downloads/sleep/sleep_data.csv"
+                            else "导出失败，请重试",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    },
+                    closeDrawer = { scope.launch { drawerState.close() } }
+                )
+            }
+        ) {
+            Scaffold(
+                topBar = {
+                    TopAppBar(
+                        title = { Text("快捷开关") },
+                        navigationIcon = {
+                            IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                                Text("☰", fontSize = 22.sp)
+                            }
                         }
                     )
                 }
+            ) { innerPadding ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding)
+                ) {
+                    TabRow(selectedTabIndex = tab) {
+                        Tab(
+                            selected = tab == 0,
+                            onClick = { tab = 0 },
+                            text = { Text("开关") }
+                        )
+                        Tab(
+                            selected = tab == 1,
+                            onClick = { tab = 1 },
+                            text = { Text("睡眠状态") }
+                        )
+                    }
+                    when (tab) {
+                        0 -> SwitchScreen()
+                        else -> SleepScreen()
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ---------------- 抽屉 ----------------
+
+@Composable
+fun DrawerContent(
+    accentKey: String,
+    onAccentChange: (String) -> Unit,
+    onExportClick: () -> Unit,
+    closeDrawer: () -> Unit
+) {
+    val context = LocalContext.current
+
+    ModalDrawerSheet {
+        Spacer(Modifier.height(24.dp))
+        Text(
+            "快捷开关",
+            modifier = Modifier.padding(horizontal = 16.dp),
+            style = MaterialTheme.typography.titleLarge
+        )
+        Spacer(Modifier.height(12.dp))
+        HorizontalDivider()
+
+        // ---- 主题 ----
+        Column(Modifier.padding(16.dp)) {
+            Text("主题", style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "选择强调色",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                accentOptions.forEach { option ->
+                    val selected = option.key == accentKey
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(option.color)
+                                .border(
+                                    width = if (selected) 3.dp else 1.dp,
+                                    color = if (selected) MaterialTheme.colorScheme.onSurface
+                                    else MaterialTheme.colorScheme.outlineVariant,
+                                    shape = CircleShape
+                                )
+                                .clickable { onAccentChange(option.key) }
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = option.label,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (selected) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+
+        HorizontalDivider()
+
+        // ---- 导出 ----
+        NavigationDrawerItem(
+            label = { Text("导出睡眠数据") },
+            selected = false,
+            onClick = {
+                onExportClick()
+                closeDrawer()
+            },
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+        )
+
+        HorizontalDivider()
+
+        // ---- 关于 ----
+        Column(Modifier.padding(16.dp)) {
+            Text("关于", style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("当前版本", style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.weight(1f))
+                Text(
+                    text = BuildConfig.VERSION_NAME,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { openUrl(context, GITHUB_URL) }
+                    .padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("GitHub 项目", style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.weight(1f))
+                Text(
+                    text = "打开 ›",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
             }
         }
     }
@@ -162,7 +313,6 @@ fun SwitchScreen() {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    // 从系统设置页返回时自动刷新状态
     var refreshTick by remember { mutableIntStateOf(0) }
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -194,7 +344,6 @@ fun SwitchScreen() {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // 3B-1：描述小字已删除，条目列表整体移入「睡前开关」卡片
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(vertical = 8.dp)) {
                 Text(
@@ -204,63 +353,37 @@ fun SwitchScreen() {
                 )
                 Spacer(Modifier.height(8.dp))
 
-                SwitchItem(
-                    title = "Wi-Fi",
-                    isOn = wifiOn,
-                    onAction = { openInternetPanel(context) }
-                )
+                SwitchItem("Wi-Fi", wifiOn) { openInternetPanel(context) }
                 HorizontalDivider(Modifier.padding(horizontal = 16.dp))
-                SwitchItem(
-                    title = "移动网络",
-                    isOn = mobileOn,
-                    onAction = { openInternetPanel(context) }
-                )
+                SwitchItem("移动网络", mobileOn) { openInternetPanel(context) }
                 HorizontalDivider(Modifier.padding(horizontal = 16.dp))
-                SwitchItem(
-                    title = "蓝牙",
-                    isOn = btOn,
-                    onAction = {
-                        val needPermission = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
-                                ContextCompat.checkSelfPermission(
-                                    context, Manifest.permission.BLUETOOTH_CONNECT
-                                ) != PackageManager.PERMISSION_GRANTED
-                        if (needPermission) {
-                            btPermissionLauncher.launch(Manifest.permission.BLUETOOTH_CONNECT)
-                        } else {
-                            openBluetoothSettings(context)
-                        }
+                SwitchItem("蓝牙", btOn) {
+                    val needPermission = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                            ContextCompat.checkSelfPermission(
+                                context, Manifest.permission.BLUETOOTH_CONNECT
+                            ) != PackageManager.PERMISSION_GRANTED
+                    if (needPermission) {
+                        btPermissionLauncher.launch(Manifest.permission.BLUETOOTH_CONNECT)
+                    } else {
+                        openBluetoothSettings(context)
                     }
-                )
+                }
                 HorizontalDivider(Modifier.padding(horizontal = 16.dp))
-                SwitchItem(
-                    title = "NFC",
-                    isOn = nfcOn,
-                    onAction = { openNfcSettings(context) }
-                )
+                SwitchItem("NFC", nfcOn) { openNfcSettings(context) }
                 HorizontalDivider(Modifier.padding(horizontal = 16.dp))
-                SwitchItem(
-                    title = "省电模式",
-                    isOn = null,
-                    onAction = { openBatterySaverSettings(context) }
-                )
+                SwitchItem("省电模式", null) { openBatterySaverSettings(context) }
             }
         }
     }
 }
 
-/**
- * 一行开关项。isOn = true 显示绿色圆，false 显示灰色圆，null 表示无法读取。
- */
 @Composable
 private fun SwitchItem(
     title: String,
     isOn: Boolean?,
     onAction: () -> Unit
 ) {
-    val dot = when (isOn) {
-        true -> "🟢"
-        else -> "⚪"
-    }
+    val dot = if (isOn == true) "🟢" else "⚪"
     val stateText = when (isOn) {
         true -> "已开启"
         false -> "已关闭"
@@ -285,112 +408,6 @@ private fun SwitchItem(
             )
         }
         TextButton(onClick = onAction) { Text("去设置") }
-    }
-}
-
-// ---------------- 菜单页 ----------------
-
-@Composable
-fun MenuScreen(
-    accentKey: String,
-    onAccentChange: (String) -> Unit
-) {
-    val context = LocalContext.current
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        // ---- 主题 ----
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text("主题", style = MaterialTheme.typography.titleLarge)
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    "选择强调色",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(Modifier.height(16.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    accentOptions.forEach { option ->
-                        val selected = option.key == accentKey
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .clip(CircleShape)
-                                    .background(option.color)
-                                    .border(
-                                        width = if (selected) 3.dp else 1.dp,
-                                        color = if (selected) MaterialTheme.colorScheme.onSurface
-                                        else MaterialTheme.colorScheme.outlineVariant,
-                                        shape = CircleShape
-                                    )
-                                    .clickable { onAccentChange(option.key) }
-                            )
-                            Spacer(Modifier.height(6.dp))
-                            Text(
-                                text = option.label,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = if (selected) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        // ---- 关于 ----
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text("关于", style = MaterialTheme.typography.titleLarge)
-                Spacer(Modifier.height(12.dp))
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("当前版本", style = MaterialTheme.typography.bodyLarge)
-                    Spacer(Modifier.weight(1f))
-                    Text(
-                        text = BuildConfig.VERSION_NAME,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                Spacer(Modifier.height(8.dp))
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable { openUrl(context, GITHUB_URL) }
-                        .padding(vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("GitHub 项目", style = MaterialTheme.typography.bodyLarge)
-                    Spacer(Modifier.weight(1f))
-                    Text(
-                        text = "打开 ›",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-
-                Text(
-                    text = GITHUB_URL,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-        }
     }
 }
 
@@ -426,7 +443,6 @@ private fun isNfcEnabled(context: Context): Boolean {
     }
 }
 
-/** 返回 null 表示没有 BLUETOOTH_CONNECT 权限，读不到状态。 */
 private fun isBluetoothEnabled(context: Context): Boolean? {
     return try {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
@@ -444,7 +460,7 @@ private fun isBluetoothEnabled(context: Context): Boolean? {
     }
 }
 
-// ---------------- 跳转动作 ----------------
+// ---------------- 跳转 ----------------
 
 private fun openInternetPanel(context: Context) {
     try {
@@ -453,17 +469,13 @@ private fun openInternetPanel(context: Context) {
         context.startActivity(intent)
         Toast.makeText(context, "请在面板中关闭 Wi-Fi / 移动网络", Toast.LENGTH_SHORT).show()
     } catch (e: Exception) {
-        openWirelessSettings(context)
-    }
-}
-
-private fun openWirelessSettings(context: Context) {
-    try {
-        val intent = Intent(Settings.ACTION_WIRELESS_SETTINGS)
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        context.startActivity(intent)
-    } catch (e: Exception) {
-        Toast.makeText(context, "无法打开设置", Toast.LENGTH_SHORT).show()
+        try {
+            val intent = Intent(Settings.ACTION_WIRELESS_SETTINGS)
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(intent)
+        } catch (e2: Exception) {
+            Toast.makeText(context, "无法打开设置", Toast.LENGTH_SHORT).show()
+        }
     }
 }
 
