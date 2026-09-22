@@ -43,15 +43,15 @@ import java.time.LocalDate
 import java.time.YearMonth
 
 @Composable
-fun SleepScreen() {
+fun SleepScreen(refreshTick: Int = 0) {
     val context = LocalContext.current
     var records by remember { mutableStateOf(SleepStorage.loadAll(context)) }
     var selectedDate by remember { mutableStateOf(LocalDate.now()) }
     var expanded by remember { mutableStateOf(true) }
     var currentMonth by remember { mutableStateOf(YearMonth.now()) }
 
-    // 启动时用闹钟补记起床时间
-    LaunchedEffect(Unit) {
+    // 启动时 / 导入后，用闹钟补记并刷新
+    LaunchedEffect(refreshTick) {
         SleepStorage.autoFillWakeByAlarm(context)
         records = SleepStorage.loadAll(context)
     }
@@ -335,11 +335,14 @@ fun ChartCard(
                         Modifier
                             .size(10.dp)
                             .clip(CircleShape)
-                            .background(Color.Transparent)
-                            .then(
-                                Modifier.padding(1.dp)
+                            .background(MaterialTheme.colorScheme.surface)
+                            .border(
+                                1.dp,
+                                MaterialTheme.colorScheme.primary,
+                                CircleShape
                             )
                     )
+                    Spacer(Modifier.size(4.dp))
                     Text("空心=起床", style = MaterialTheme.typography.labelSmall)
                 }
             }
@@ -354,8 +357,6 @@ private fun SleepChart(
 ) {
     val primaryColor = MaterialTheme.colorScheme.primary
     val gridColor = MaterialTheme.colorScheme.outlineVariant
-    val textColor = MaterialTheme.colorScheme.onSurfaceVariant
-    val bgColor = MaterialTheme.colorScheme.surface
 
     Canvas(modifier = modifier) {
         val w = size.width
@@ -375,12 +376,8 @@ private fun SleepChart(
             return topPad + chartH * (1f - (y - yMin) / yRange)
         }
 
-        // 画 y 轴刻度线 + 文字
-        //val ticks = listOf(-6f, -3f, 0f, 3f, 6f, 9f, 12f)
-        //val drawTextMeasurer = androidx.compose.ui.text.rememberTextMeasurer()
+        // 画 y 轴刻度线
         val ticks = listOf(-6f, -3f, 0f, 3f, 6f, 9f, 12f)
-        // 注意：Canvas 里不能直接调用 rememberTextMeasurer，需要放到外面
-        // 为了简单，这里用横线代替文字标注，配合外部图例使用
 
         ticks.forEach { y ->
             drawLine(
