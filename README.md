@@ -46,31 +46,20 @@ v1.3.2
 
 从旧签名版本升级需先卸载，之后版本可直接覆盖安装。
 
-## 项目地址
+## 📂 项目结构
 
-https://github.com/jimmyrejuice/andriod-test/
-
-andriod-test/
-├── .github/
-│   └── workflows/
-│       └── build.yml                # GitHub Actions 构建脚本（含 keystore 签名）
-├── app/
-│   ├── build.gradle.kts             # app 模块配置（versionCode=6, versionName=1.3.2）
-│   └── src/
-│       └── main/
-│           ├── AndroidManifest.xml  # 权限、Activity 声明、图标引用
-│           ├── java/
-│           │   └── com/example/quickswitch/
-│           │       ├── MainActivity.kt    # 主入口、抽屉、胶囊 Tab、开关页
-│           │       ├── SleepData.kt       # 睡眠数据模型 + 存储 + 导入导出
-│           │       └── SleepScreen.kt     # 睡眠状态页（日历 + 图表）
-│           └── res/
-│               ├── drawable/
-│               │   └── ic_launcher.xml    # 应用图标（自适应图标）
-│               └── values/
-│                   ├── strings.xml        # 字符串资源
-│                   └── themes.xml         # 主题样式
-├── gradle.properties                # Gradle 全局配置
-├── build.gradle.kts                 # 根 build 配置（插件版本）
-├── settings.gradle.kts              # 模块声明、仓库配置
-└── README.md                        # 项目说明
+| 路径 | 说明 |
+|---|---|
+| `.github/workflows/build.yml` | GitHub Actions 自动构建，含 keystore 签名配置 |
+| `app/build.gradle.kts` | App 模块配置：版本号、SDK、依赖库 |
+| `app/src/main/AndroidManifest.xml` | 权限声明、Activity 注册、应用图标 |
+| `app/src/main/java/com/example/quickswitch/MainActivity.kt` | 主入口：抽屉菜单、胶囊 Tab、睡前开关页 |
+| `app/src/main/java/com/example/quickswitch/SleepData.kt` | 睡眠数据模型、存储、导入导出、闹钟读取 |
+| `app/src/main/java/com/example/quickswitch/SleepScreen.kt` | 睡眠状态页：日历、图表、记录按钮 |
+| `app/src/main/res/drawable/ic_launcher.xml` | 应用图标（自适应矢量图） |
+| `app/src/main/res/values/strings.xml` | 字符串资源 |
+| `app/src/main/res/values/themes.xml` | 主题样式 |
+| `build.gradle.kts` | 根构建配置：插件版本（AGP 8.7.3 / Kotlin 2.0.21） |
+| `settings.gradle.kts` | 模块声明、仓库配置 |
+| `gradle.properties` | Gradle 全局配置：JVM 内存、AndroidX |
+| `README.md` | 项目说明 |
