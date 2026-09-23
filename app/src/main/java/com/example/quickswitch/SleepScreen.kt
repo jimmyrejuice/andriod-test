@@ -16,11 +16,22 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -37,11 +48,18 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.time.LocalDate
 import java.time.YearMonth
+
+// 睡觉 = 深蓝紫（夜空），起床 = 橙色（日出）
+private val SleepColor = Color(0xFF3949AB)
+private val WakeColor = Color(0xFFFB8C00)
 
 @Composable
 fun SleepScreen(refreshTick: Int = 0) {
@@ -51,7 +69,6 @@ fun SleepScreen(refreshTick: Int = 0) {
     var expanded by remember { mutableStateOf(true) }
     var currentMonth by remember { mutableStateOf(YearMonth.now()) }
 
-    // 启动时 / 导入后，用闹钟补记并刷新
     LaunchedEffect(refreshTick) {
         SleepStorage.autoFillWakeByAlarm(context)
         records = SleepStorage.loadAll(context)
@@ -63,7 +80,8 @@ fun SleepScreen(refreshTick: Int = 0) {
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp)
-                .padding(bottom = 96.dp)
+                .padding(bottom = 100.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             CalendarCard(
                 currentMonth = currentMonth,
@@ -76,7 +94,6 @@ fun SleepScreen(refreshTick: Int = 0) {
             )
 
             if (!expanded) {
-                Spacer(Modifier.height(12.dp))
                 ChartCard(selectedDate = selectedDate, records = records)
             }
         }
@@ -99,9 +116,19 @@ fun SleepScreen(refreshTick: Int = 0) {
                 modifier = Modifier
                     .weight(1f)
                     .height(56.dp),
-                shape = CircleShape
+                shape = CircleShape,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = SleepColor,
+                    contentColor = Color.White
+                )
             ) {
-                Text("我睡了", fontSize = 16.sp)
+                Icon(
+                    Icons.Default.DarkMode,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text("我睡了", fontSize = 15.sp)
             }
             Button(
                 onClick = {
@@ -112,9 +139,19 @@ fun SleepScreen(refreshTick: Int = 0) {
                 modifier = Modifier
                     .weight(1f)
                     .height(56.dp),
-                shape = CircleShape
+                shape = CircleShape,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = WakeColor,
+                    contentColor = Color.White
+                )
             ) {
-                Text("我起了", fontSize = 16.sp)
+                Icon(
+                    Icons.Default.LightMode,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text("我起了", fontSize = 15.sp)
             }
         }
     }
@@ -132,14 +169,17 @@ fun CalendarCard(
     onDateSelect: (LocalDate) -> Unit,
     onToggleExpand: () -> Unit
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp)
+    ) {
         Column(Modifier.padding(12.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = { onMonthChange(currentMonth.minusMonths(1)) }) {
-                    Text("◀", fontSize = 16.sp)
+                    Icon(Icons.Default.KeyboardArrowLeft, contentDescription = "上个月")
                 }
                 Text(
                     text = "${currentMonth.year}年${currentMonth.monthValue}月",
@@ -148,10 +188,14 @@ fun CalendarCard(
                     textAlign = TextAlign.Center
                 )
                 IconButton(onClick = { onMonthChange(currentMonth.plusMonths(1)) }) {
-                    Text("▶", fontSize = 16.sp)
+                    Icon(Icons.Default.KeyboardArrowRight, contentDescription = "下个月")
                 }
                 IconButton(onClick = onToggleExpand) {
-                    Text(if (expanded) "▴" else "▾", fontSize = 18.sp)
+                    Icon(
+                        imageVector = if (expanded) Icons.Default.KeyboardArrowUp
+                        else Icons.Default.KeyboardArrowDown,
+                        contentDescription = if (expanded) "收起" else "展开"
+                    )
                 }
             }
 
@@ -167,7 +211,7 @@ fun CalendarCard(
                 }
             }
 
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(6.dp))
 
             if (expanded) {
                 MonthGrid(currentMonth, selectedDate, records, onDateSelect)
@@ -258,17 +302,23 @@ private fun DayCell(
     hasRecord: Boolean,
     onClick: () -> Unit
 ) {
+    // D2：圆角方块，今天用描边
+    val shape = RoundedCornerShape(10.dp)
+    val bgColor = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
+    val showOutline = isToday && !isSelected
+
+    val borderMod = if (showOutline) {
+        Modifier.border(1.5.dp, MaterialTheme.colorScheme.primary, shape)
+    } else {
+        Modifier
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .clip(CircleShape)
-            .background(
-                when {
-                    isSelected -> MaterialTheme.colorScheme.primary
-                    isToday -> MaterialTheme.colorScheme.primaryContainer
-                    else -> Color.Transparent
-                }
-            )
+            .clip(shape)
+            .background(bgColor)
+            .then(borderMod)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
@@ -301,53 +351,74 @@ fun ChartCard(
     selectedDate: LocalDate,
     records: Map<String, SleepRecord>
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    val monday = selectedDate.minusDays((selectedDate.dayOfWeek.value - 1).toLong())
+    val weekData = (0 until 7).map { i ->
+        val date = monday.plusDays(i.toLong())
+        date to records[date.toString()]
+    }
+    val hasAnyData = weekData.any {
+        it.second?.let { r -> r.sleepMinutes != null || r.wakeMinutes != null } == true
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp)
+    ) {
         Column(Modifier.padding(16.dp)) {
             Text("本周睡眠", style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(12.dp))
 
-            val monday = selectedDate.minusDays((selectedDate.dayOfWeek.value - 1).toLong())
-            val weekData = (0 until 7).map { i ->
-                val date = monday.plusDays(i.toLong())
-                date to records[date.toString()]
+            if (hasAnyData) {
+                SleepChart(
+                    weekData = weekData,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(220.dp)
+                )
+            } else {
+                // G3：空状态
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(220.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        "还没有记录，点下方按钮记录吧",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
 
-            SleepChart(
-                weekData = weekData,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(220.dp)
-            )
-
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        Modifier
-                            .size(10.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary)
-                    )
-                    Spacer(Modifier.size(4.dp))
-                    Text("实心=睡觉", style = MaterialTheme.typography.labelSmall)
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        Modifier
-                            .size(10.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.surface)
-                            .border(
-                                1.dp,
-                                MaterialTheme.colorScheme.primary,
-                                CircleShape
-                            )
-                    )
-                    Spacer(Modifier.size(4.dp))
-                    Text("空心=起床", style = MaterialTheme.typography.labelSmall)
-                }
+                LegendItem(color = SleepColor, label = "睡觉", filled = true)
+                LegendItem(color = WakeColor, label = "起床", filled = false)
             }
         }
+    }
+}
+
+@Composable
+private fun LegendItem(
+    color: Color,
+    label: String,
+    filled: Boolean
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier = Modifier
+                .size(10.dp)
+                .clip(CircleShape)
+                .background(if (filled) color else Color.Transparent)
+                .then(
+                    if (filled) Modifier
+                    else Modifier.border(1.5.dp, color, CircleShape)
+                )
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(label, style = MaterialTheme.typography.labelMedium)
     }
 }
 
@@ -356,16 +427,17 @@ private fun SleepChart(
     weekData: List<Pair<LocalDate, SleepRecord?>>,
     modifier: Modifier = Modifier
 ) {
-    val primaryColor = MaterialTheme.colorScheme.primary
+    val textMeasurer = rememberTextMeasurer()
     val gridColor = MaterialTheme.colorScheme.outlineVariant
+    val axisTextColor = MaterialTheme.colorScheme.onSurfaceVariant
 
     Canvas(modifier = modifier) {
         val w = size.width
         val h = size.height
-        val leftPad = 44f
-        val bottomPad = 30f
-        val topPad = 10f
-        val rightPad = 8f
+        val leftPad = 40.dp.toPx()
+        val bottomPad = 28.dp.toPx()
+        val topPad = 12.dp.toPx()
+        val rightPad = 8.dp.toPx()
         val chartW = w - leftPad - rightPad
         val chartH = h - topPad - bottomPad
 
@@ -373,27 +445,55 @@ private fun SleepChart(
         val yMax = 12f
         val yRange = yMax - yMin
 
-        fun yToPx(y: Float): Float {
-            return topPad + chartH * (1f - (y - yMin) / yRange)
-        }
+        fun yToPx(y: Float): Float = topPad + chartH * (1f - (y - yMin) / yRange)
 
-        // 画 y 轴刻度线
-        val ticks = listOf(-6f, -3f, 0f, 3f, 6f, 9f, 12f)
-
-        ticks.forEach { y ->
+        // E1：y 轴刻度 + 文字
+        val yTicks = listOf(
+            -6f to "18时",
+            0f to "0时",
+            6f to "6时",
+            12f to "12时"
+        )
+        yTicks.forEach { (y, label) ->
             drawLine(
                 color = gridColor,
                 start = Offset(leftPad, yToPx(y)),
                 end = Offset(w - rightPad, yToPx(y)),
                 strokeWidth = if (y == 0f) 1.5.dp.toPx() else 0.5.dp.toPx()
             )
+            val layout = textMeasurer.measure(
+                text = label,
+                style = TextStyle(color = axisTextColor, fontSize = 10.sp)
+            )
+            drawText(
+                textLayoutResult = layout,
+                topLeft = Offset(
+                    x = leftPad - layout.size.width - 6.dp.toPx(),
+                    y = yToPx(y) - layout.size.height / 2f
+                )
+            )
         }
 
-        // 每天的位置
+        // E1：x 轴星期文字
+        val dayLabels = listOf("一", "二", "三", "四", "五", "六", "日")
         val dayW = chartW / 7f
         val centers = (0 until 7).map { i -> leftPad + dayW * (i + 0.5f) }
 
-        // 画点
+        dayLabels.forEachIndexed { i, label ->
+            val layout = textMeasurer.measure(
+                text = label,
+                style = TextStyle(color = axisTextColor, fontSize = 10.sp)
+            )
+            drawText(
+                textLayoutResult = layout,
+                topLeft = Offset(
+                    x = centers[i] - layout.size.width / 2f,
+                    y = topPad + chartH + 8.dp.toPx()
+                )
+            )
+        }
+
+        // E3：睡觉深蓝紫实心、起床橙色空心
         weekData.forEachIndexed { i, (_, record) ->
             val cx = centers[i]
             if (record != null) {
@@ -402,7 +502,7 @@ private fun SleepChart(
 
                 if (sleepY != null && wakeY != null) {
                     drawLine(
-                        color = primaryColor,
+                        color = gridColor,
                         start = Offset(cx, yToPx(sleepY)),
                         end = Offset(cx, yToPx(wakeY)),
                         strokeWidth = 2.dp.toPx()
@@ -410,17 +510,17 @@ private fun SleepChart(
                 }
                 sleepY?.let {
                     drawCircle(
-                        color = primaryColor,
+                        color = SleepColor,
                         radius = 6.dp.toPx(),
                         center = Offset(cx, yToPx(it))
                     )
                 }
                 wakeY?.let {
                     drawCircle(
-                        color = primaryColor,
+                        color = WakeColor,
                         radius = 6.dp.toPx(),
                         center = Offset(cx, yToPx(it)),
-                        style = Stroke(width = 2.dp.toPx())
+                        style = Stroke(width = 2.5.dp.toPx())
                     )
                 }
             }
