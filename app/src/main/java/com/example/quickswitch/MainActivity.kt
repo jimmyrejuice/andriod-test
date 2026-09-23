@@ -37,19 +37,20 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.Card
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -133,7 +134,6 @@ fun QuickSwitchApp() {
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
-    // 导入文件选择器
     val importLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
@@ -178,10 +178,12 @@ fun QuickSwitchApp() {
             Scaffold(
                 topBar = {
                     TopAppBar(
-                        title = { Text("快捷开关") },
+                        title = {
+                            Text(if (tab == 0) "快捷开关" else "睡眠状态")
+                        },
                         navigationIcon = {
                             IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                                Text("☰", fontSize = 22.sp)
+                                Icon(Icons.Default.Menu, contentDescription = "菜单")
                             }
                         }
                     )
@@ -192,23 +194,55 @@ fun QuickSwitchApp() {
                         .fillMaxSize()
                         .padding(innerPadding)
                 ) {
-                    TabRow(selectedTabIndex = tab) {
-                        Tab(
-                            selected = tab == 0,
-                            onClick = { tab = 0 },
-                            text = { Text("开关") }
-                        )
-                        Tab(
-                            selected = tab == 1,
-                            onClick = { tab = 1 },
-                            text = { Text("睡眠状态") }
-                        )
-                    }
+                    // C2：胶囊 Tab
+                    PillTabs(selected = tab, onSelect = { tab = it })
+
                     when (tab) {
                         0 -> SwitchScreen()
                         else -> SleepScreen(refreshTick = sleepRefreshTick)
                     }
                 }
+            }
+        }
+    }
+}
+
+// ---------------- 胶囊 Tab ----------------
+
+@Composable
+private fun PillTabs(
+    selected: Int,
+    onSelect: (Int) -> Unit
+) {
+    val titles = listOf("开关", "睡眠状态")
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .clip(RoundedCornerShape(50))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .padding(4.dp)
+    ) {
+        titles.forEachIndexed { i, title ->
+            val isSelected = i == selected
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(50))
+                    .background(
+                        if (isSelected) MaterialTheme.colorScheme.primary
+                        else Color.Transparent
+                    )
+                    .clickable { onSelect(i) }
+                    .padding(vertical = 10.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary
+                    else MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }
@@ -235,7 +269,6 @@ fun DrawerContent(
         Spacer(Modifier.height(12.dp))
         HorizontalDivider()
 
-        // ---- 主题 ----
         Column(Modifier.padding(16.dp)) {
             Text("主题", style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(4.dp))
@@ -279,7 +312,6 @@ fun DrawerContent(
 
         HorizontalDivider()
 
-        // ---- 导出 ----
         NavigationDrawerItem(
             label = { Text("导出睡眠数据") },
             selected = false,
@@ -287,7 +319,6 @@ fun DrawerContent(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
         )
 
-        // ---- 导入 ----
         NavigationDrawerItem(
             label = { Text("导入睡眠数据") },
             selected = false,
@@ -297,7 +328,6 @@ fun DrawerContent(
 
         HorizontalDivider()
 
-        // ---- 关于 ----
         Column(Modifier.padding(16.dp)) {
             Text("关于", style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(8.dp))
@@ -367,9 +397,13 @@ fun SwitchScreen() {
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Card(modifier = Modifier.fillMaxWidth()) {
+        // G2：卡片圆角 20dp
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp)
+        ) {
             Column(modifier = Modifier.padding(vertical = 8.dp)) {
                 Text(
                     text = "睡前开关",
