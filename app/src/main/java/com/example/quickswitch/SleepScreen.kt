@@ -120,11 +120,7 @@ fun SleepScreen(refreshTick: Int = 0) {
                     contentColor = Color.White
                 )
             ) {
-                Icon(
-                    Icons.Default.DarkMode,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp)
-                )
+                                Text("🌙", fontSize = 18.sp)
                 Spacer(Modifier.width(8.dp))
                 Text("我睡了", fontSize = 15.sp)
             }
@@ -143,11 +139,7 @@ fun SleepScreen(refreshTick: Int = 0) {
                     contentColor = Color.White
                 )
             ) {
-                Icon(
-                    Icons.Default.LightMode,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp)
-                )
+                                Text("☀️", fontSize = 18.sp)
                 Spacer(Modifier.width(8.dp))
                 Text("我起了", fontSize = 15.sp)
             }
